@@ -6,6 +6,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import searchengine.config.Site;
 import searchengine.model.Page;
+import searchengine.model.Status;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -113,11 +114,21 @@ public class PageParser extends RecursiveTask<String> {
     public void insert(String values) {
         Session session = SQLQueryExecutor.createSession();
 
-        session.createQuery("SELECT s.id FROM search_engine.site s WHERE ")
-
         session.createQuery("INSERT INTO page(`path`, `code`, `content`) VALUES" + values
                 + "ON DUPLICATE KEY UPDATE `path` = `path`");
 
         session.close();
+    }
+
+    private void setSiteStatus(Status status) {
+        Session session = SQLQueryExecutor.createSession();
+        String hql = String.format("""
+                UPDATE site
+                SET
+                    site.status = '%s'
+                WHERE
+                    site.name = '%s'
+                """, status.name(), site.getName());
+        session.createQuery(hql).executeUpdate();
     }
 }

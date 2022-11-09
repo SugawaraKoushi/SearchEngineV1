@@ -42,7 +42,7 @@ public class IndexingService {
         session.createQuery(String.format("""
                 INSERT site(id, status, status_time, last_error, url, name)
                 VALUES ('%s', '%s', '%s', '%s', '%s')
-                """, Status.INDEXING, date, "", site.getUrl(), site.getName()));
+                """, Status.INDEXING, date, null, site.getUrl(), site.getName()));
     }
 
     private void updateStatus(Status status) {
