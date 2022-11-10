@@ -10,7 +10,7 @@ import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 public class SQLQueryExecutor {
     public static Session createSession() {
         StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
-                .configure("application.yaml").build();
+                .configure("hibernate.cfg.xml").build();
         Metadata metadata = new MetadataSources(registry).getMetadataBuilder().build();
         SessionFactory sessionFactory = metadata.getSessionFactoryBuilder().build();
         return sessionFactory.openSession();

@@ -10,26 +10,26 @@ import searchengine.model.Status;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class PageParser extends RecursiveTask<String> {
+public class PageParser extends RecursiveTask<HashSet<Page>> {
     private static final Pattern URL_PATTERN = Pattern.compile("(?<homeURL>https?://[^/]+)?(?<else>.+)");
+    private static HashSet pages = new HashSet<>();
 
     private static Site site;
-    private Page page;
-
-    private Document document;
+    private Page page = new Page();
 
     public PageParser(Site site) {
         this(site.getUrl());
-        PageParser.site = site;
-        page = new Page();
+        this.site = site;
         page.setSite(site);
     }
 
     private PageParser(String url) {
+        page.setSite(site);
         // Проверяем, стоит ли в конце символ "/"
         if (!url.endsWith("/") && !url.endsWith(".html")) {
             url = url.concat("/");
@@ -43,7 +43,7 @@ public class PageParser extends RecursiveTask<String> {
     }
 
     @Override
-    protected String compute() {
+    protected HashSet<Page> compute() {
         ArrayList<PageParser> taskList = new ArrayList<>(); // Список задач
         HashSet<Page> pageSet = handle(page.getPath());  // Список ссылок на текущей странице url
 
@@ -54,23 +54,11 @@ public class PageParser extends RecursiveTask<String> {
             taskList.add(task);
         }
 
-        // Суммируем полученные результаты
-        StringBuilder builder = new StringBuilder();
         for (PageParser task : taskList) {
-            // Разбиваем insert запрос по частям
-            if (builder.length() > 3_000_000) {
-                insert(builder.substring(1));
-                builder = new StringBuilder();
-            }
-            builder.append(",").append(task.join());
+            pages.add(task.page);
         }
 
-        // Получаем html-код страницы
-        String content = document.toString();
-        content = content.replaceAll("'", "\\\\'");
-        content = content.replaceAll("\"", "\\\\\"");
-
-        return String.format("(%d, \"%s\", %d, \"%s\")", page.getSite().getId(), page.getPath(), page.getCode(), page.getContent()) + builder;
+        return pages;
     }
 
     // Возвращает список страниц со страницы url
@@ -86,8 +74,16 @@ public class PageParser extends RecursiveTask<String> {
                     .execute();
 
             TimeUnit.MILLISECONDS.sleep(50);
-            page.setCode(response.statusCode());                // код ответа с сервера
-            page.setContent(response.parse().toString());       // html-код страницы
+
+            Document document = response.parse();
+            page.setCode(response.statusCode());    // код ответа с сервера
+
+            // html-код страницы
+            String content = document.toString();
+            content = content.replaceAll("'", "\\\\'");
+            content = content.replaceAll("\"", "\\\\\"");
+            page.setContent(document.toString());
+
             Elements elements = document.select("a");  // гиперссылки
 
             // Получаем ссылки

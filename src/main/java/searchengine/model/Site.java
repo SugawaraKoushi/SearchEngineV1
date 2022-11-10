@@ -35,8 +35,4 @@ public class Site {
 
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
     private List<Page> pageList;
-
-    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "lemma_id")
-    private List<Lemma> lemmaList;
 }

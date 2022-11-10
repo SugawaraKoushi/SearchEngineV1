@@ -9,7 +9,8 @@
 <!--[if IE 9]>
 <html class="ie9" lang="ru">
 <![endif]-->
-<!--[if gt IE 9]><!--> <html lang="ru"> <!--<![endif]-->
+<!--[if gt IE 9]><!-->
+<html lang="ru" xmlns:th="http://www.w3.org/1999/xhtml"> <!--<![endif]-->
 <head>
   <title>Site Search Engine</title>
   <meta name="description" content="Site Search Engine">
@@ -103,7 +104,10 @@
                   </h2>
                 </div>
                 <div>
-                  <button class="btn btn_primary API-startIndexing" data-btntype="check" data-check="false" data-alttext="Stop indexing" data-send="startIndexing" data-altsend="stopIndexing"><span class="btn-content">Start indexing</span>
+                  <button class="btn btn_primary API-startIndexing" data-btntype="check" data-check="false"
+                          data-alttext="Stop indexing" data-send="startIndexing" data-altsend="stopIndexing"
+                  th:onclick = "/api/startIndexing" >
+                    <span class="btn-content">Start indexing</span>
                   </button>
                 </div><br>
                 <div class="UpdatePageBlock">

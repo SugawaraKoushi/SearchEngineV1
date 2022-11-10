@@ -21,8 +21,4 @@ public class Lemma {
 
     @Column(nullable = false)
     private int frequency;
-
-    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "site_id", nullable = false)
-    private List<Site> siteList;
 }

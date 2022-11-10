@@ -3,35 +3,46 @@ package searchengine.services;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
+import searchengine.dto.indexing.PageParser;
 import searchengine.dto.indexing.SQLQueryExecutor;
+import searchengine.model.Page;
 import searchengine.model.Site;
 import searchengine.model.Status;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.concurrent.ForkJoinPool;
 
 public class IndexingService {
     private final Site site = new Site();
     private final Session session;
 
     public IndexingService(searchengine.config.Site site) {
-        site.setUrl(site.getUrl());
-        site.setName(site.getName());
+        this.site.setUrl(site.getUrl());
+        this.site.setName(site.getName());
         session = SQLQueryExecutor.createSession();
     }
 
     public void index() {
-        delete();
+        deleteSite();
         createInstanceOfSite();
 
+        PageParser pageParser = new PageParser(site);
+        HashSet<Page> pages = new ForkJoinPool().invoke(pageParser);
+        System.out.println(pages.size());
+        session.close();
     }
 
-    private void delete() {
-        session.createQuery("DELETE * FROM search_engine.site s WHERE s.url = " + site.getUrl());
+    private void deleteSite() {
+        String hql = String.format("DELETE FROM %s WHERE name = '%s'", Site.class.getSimpleName(),  site.getName());
+        Transaction transaction = session.beginTransaction();
+        session.createQuery(hql).executeUpdate();
+        transaction.commit();
     }
 
     private void createInstanceOfSite() {
         Date date = new Date(System.currentTimeMillis());
-        Transaction transaction = session.getTransaction();
+        Transaction transaction = session.beginTransaction();
 
         Site site = new Site();
         site.setStatus(Status.INDEXING);
@@ -43,6 +54,5 @@ public class IndexingService {
         session.persist(site);
 
         transaction.commit();
-        session.close();
     }
 }
