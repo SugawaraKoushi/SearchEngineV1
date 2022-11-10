@@ -33,8 +33,7 @@ public class Site {
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String name;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(nullable = false)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
     private List<Page> pageList;
 
     @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)

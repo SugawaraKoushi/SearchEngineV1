@@ -4,7 +4,7 @@ import org.hibernate.Session;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
-import searchengine.config.Site;
+import searchengine.model.Site;
 import searchengine.model.Page;
 import searchengine.model.Status;
 
@@ -26,6 +26,7 @@ public class PageParser extends RecursiveTask<String> {
         this(site.getUrl());
         PageParser.site = site;
         page = new Page();
+        page.setSite(site);
     }
 
     private PageParser(String url) {
@@ -69,7 +70,7 @@ public class PageParser extends RecursiveTask<String> {
         content = content.replaceAll("'", "\\\\'");
         content = content.replaceAll("\"", "\\\\\"");
 
-        return String.format("(\"%s\", %d, \"%s\")", page.getPath(), page.getCode(), page.getContent()) + builder;
+        return String.format("(%d, \"%s\", %d, \"%s\")", page.getSite().getId(), page.getPath(), page.getCode(), page.getContent()) + builder;
     }
 
     // Возвращает список страниц со страницы url
@@ -114,13 +115,16 @@ public class PageParser extends RecursiveTask<String> {
     public void insert(String values) {
         Session session = SQLQueryExecutor.createSession();
 
-        session.createQuery("INSERT INTO page(`path`, `code`, `content`) VALUES" + values
-                + "ON DUPLICATE KEY UPDATE `path` = `path`");
+        session.createQuery("INSERT INTO page(`site_id`, `path`, `code`, `content`) VALUES" + values);
 
         session.close();
     }
 
     private void setSiteStatus(Status status) {
+        if (site.getStatus() == status) {
+            return;
+        }
+
         Session session = SQLQueryExecutor.createSession();
         String hql = String.format("""
                 UPDATE site
@@ -129,6 +133,8 @@ public class PageParser extends RecursiveTask<String> {
                 WHERE
                     site.name = '%s'
                 """, status.name(), site.getName());
-        session.createQuery(hql).executeUpdate();
+        session.createQuery(hql);
+        session.close();
     }
+
 }

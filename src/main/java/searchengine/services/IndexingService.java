@@ -1,23 +1,15 @@
 package searchengine.services;
 
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.boot.Metadata;
-import org.hibernate.boot.MetadataSources;
-import org.hibernate.boot.registry.StandardServiceRegistry;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+import org.hibernate.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import searchengine.dto.indexing.SQLQueryExecutor;
 import searchengine.model.Site;
-import searchengine.model.SiteRepository;
 import searchengine.model.Status;
 
 import java.util.Date;
 
 public class IndexingService {
-    @Autowired
-    private SiteRepository siteRepository;
-
     private final Site site = new Site();
     private final Session session;
 
@@ -29,7 +21,7 @@ public class IndexingService {
 
     public void index() {
         delete();
-        createInstance();
+        createInstanceOfSite();
 
     }
 
@@ -37,17 +29,20 @@ public class IndexingService {
         session.createQuery("DELETE * FROM search_engine.site s WHERE s.url = " + site.getUrl());
     }
 
-    private void createInstance() {
+    private void createInstanceOfSite() {
         Date date = new Date(System.currentTimeMillis());
-        session.createQuery(String.format("""
-                INSERT site(id, status, status_time, last_error, url, name)
-                VALUES ('%s', '%s', '%s', '%s', '%s')
-                """, Status.INDEXING, date, null, site.getUrl(), site.getName()));
-    }
+        Transaction transaction = session.getTransaction();
 
-    private void updateStatus(Status status) {
-        session.createQuery("UPDATE search_engine.site SET site.status = " + status.name() +
-                " WHERE site.url = " + site.getUrl());
-    }
+        Site site = new Site();
+        site.setStatus(Status.INDEXING);
+        site.setStatusTime(date);
+        site.setLastError(null);
+        site.setUrl(this.site.getUrl());
+        site.setName(this.site.getName());
 
+        session.persist(site);
+
+        transaction.commit();
+        session.close();
+    }
 }
