@@ -26,17 +26,38 @@ public class IndexingService {
     public void index() {
         deleteSite();
         createInstanceOfSite();
+        HashSet<Page> pages = parsePagesFromSite();
 
-        PageParser pageParser = new PageParser(site);
-        HashSet<Page> pages = new ForkJoinPool().invoke(pageParser);
-        System.out.println(pages.size());
+        Transaction transaction = session.beginTransaction();
+        site.setPageSet(pages);
+        session.persist(site);
+        transaction.commit();
+
+        insertPagesInDB(pages);
+
+        transaction = session.beginTransaction();
+        site.setStatus(Status.INDEXED);
+        session.persist(site);
+        transaction.commit();
+
         session.close();
     }
 
     private void deleteSite() {
-        String hql = String.format("DELETE FROM %s WHERE name = '%s'", Site.class.getSimpleName(),  site.getName());
+        Site site = session.createQuery("from " + Site.class.getSimpleName() + " where name = :nameParam", Site.class)
+                .setParameter("nameParam", this.site.getName())
+                .getSingleResult();
+
         Transaction transaction = session.beginTransaction();
-        session.createQuery(hql).executeUpdate();
+
+        session.createQuery("delete " + Page.class.getSimpleName() + " where site_id = :idParam")
+                .setParameter("idParam", site.getId())
+                .executeUpdate();
+
+        session.createQuery("delete " + Site.class.getSimpleName() + " where id = :idParam")
+                .setParameter("idParam", site.getId())
+                .executeUpdate();
+
         transaction.commit();
     }
 
@@ -44,7 +65,6 @@ public class IndexingService {
         Date date = new Date(System.currentTimeMillis());
         Transaction transaction = session.beginTransaction();
 
-        Site site = new Site();
         site.setStatus(Status.INDEXING);
         site.setStatusTime(date);
         site.setLastError(null);
@@ -53,6 +73,20 @@ public class IndexingService {
 
         session.persist(site);
 
+        transaction.commit();
+    }
+
+    private HashSet<Page> parsePagesFromSite() {
+        PageParser pageParser = new PageParser(site);
+        HashSet<Page> pages = new ForkJoinPool().invoke(pageParser);
+        return pages;
+    }
+
+    private void insertPagesInDB(HashSet<Page> set) {
+        Transaction transaction = session.beginTransaction();
+        for (Page page : set) {
+            session.persist(page);
+        }
         transaction.commit();
     }
 }

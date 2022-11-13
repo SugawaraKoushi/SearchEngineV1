@@ -1,6 +1,7 @@
 package searchengine.dto.indexing;
 
 import org.hibernate.Session;
+import org.hibernate.Transaction;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -10,14 +11,12 @@ import searchengine.model.Status;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PageParser extends RecursiveTask<HashSet<Page>> {
     private static final Pattern URL_PATTERN = Pattern.compile("(?<homeURL>https?://[^/]+)?(?<else>.+)");
-    private static HashSet pages = new HashSet<>();
 
     private static Site site;
     private Page page = new Page();
@@ -46,6 +45,7 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
     protected HashSet<Page> compute() {
         ArrayList<PageParser> taskList = new ArrayList<>(); // Список задач
         HashSet<Page> pageSet = handle(page.getPath());  // Список ссылок на текущей странице url
+        HashSet<Page> resultSet = new HashSet<>();
 
         // Создаем подзадачи для каждой ссылки
         for (Page p : pageSet) {
@@ -54,14 +54,19 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
             taskList.add(task);
         }
 
+        resultSet.add(page);
         for (PageParser task : taskList) {
-            pages.add(task.page);
+            resultSet.add(task.page);
+            HashSet<Page> result = task.join();
+            for (Page p : result) {
+                resultSet.add(p);
+            }
         }
 
-        return pages;
+        return resultSet;
     }
 
-    // Возвращает список страниц со страницы url
+    // Возвращает множество страниц со страницы url
     private HashSet<Page> handle(String url) {
         HashSet<String> urlSet = new HashSet<>();
         HashSet<Page> pageSet = new HashSet<>();
@@ -82,7 +87,7 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
             String content = document.toString();
             content = content.replaceAll("'", "\\\\'");
             content = content.replaceAll("\"", "\\\\\"");
-            page.setContent(document.toString());
+            page.setContent(content);
 
             Elements elements = document.select("a");  // гиперссылки
 
@@ -107,14 +112,8 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
         return pageSet;
     }
 
-    // Вносим данные в базу данных
-    public void insert(String values) {
-        Session session = SQLQueryExecutor.createSession();
+    // Вносит все страницы в базу данных
 
-        session.createQuery("INSERT INTO page(`site_id`, `path`, `code`, `content`) VALUES" + values);
-
-        session.close();
-    }
 
     private void setSiteStatus(Status status) {
         if (site.getStatus() == status) {

@@ -3,10 +3,13 @@ package searchengine.model;
 import com.sun.istack.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import javax.persistence.*;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -21,7 +24,7 @@ public class Site {
     @Column(columnDefinition = "ENUM('INDEXING', 'INDEXED', 'FAILED')", nullable = false)
     private Status status;
 
-    @Column(name="status_time", nullable = false)
+    @Column(name = "status_time", nullable = false)
     private Date statusTime;
 
     @Column(name = "last_error", columnDefinition = "TEXT")
@@ -33,6 +36,6 @@ public class Site {
     @Column(columnDefinition = "VARCHAR(255)", nullable = false)
     private String name;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "site")
-    private List<Page> pageList;
+    @OneToMany(cascade = CascadeType.REMOVE, fetch = FetchType.LAZY, mappedBy = "site")
+    private Set<Page> pageSet = new HashSet<>();
 }
