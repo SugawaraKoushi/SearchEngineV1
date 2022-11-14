@@ -10,6 +10,7 @@ import searchengine.model.Page;
 import searchengine.model.Status;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
@@ -47,6 +48,10 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
         HashSet<Page> pageSet = handle(page.getPath());  // Список ссылок на текущей странице url
         HashSet<Page> resultSet = new HashSet<>();
 
+        if (pageSet == null) {
+            return null;
+        }
+
         // Создаем подзадачи для каждой ссылки
         for (Page p : pageSet) {
             PageParser task = new PageParser(p.getPath());
@@ -78,6 +83,8 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
                     .referrer("http://www.google.com")
                     .execute();
 
+            updateSiteStatusTime();
+
             TimeUnit.MILLISECONDS.sleep(50);
 
             Document document = response.parse();
@@ -106,7 +113,14 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
                 pageSet.add(p);
             }
         } catch (Exception exception) {
-            exception.printStackTrace();
+            Session session = SQLQueryExecutor.createSession();
+            Transaction transaction = session.beginTransaction();
+            site.setStatus(Status.FAILED);
+            site.setLastError(exception.getLocalizedMessage());
+            transaction.commit();
+            session.close();
+
+            return null;
         }
 
         return pageSet;
@@ -115,20 +129,13 @@ public class PageParser extends RecursiveTask<HashSet<Page>> {
     // Вносит все страницы в базу данных
 
 
-    private void setSiteStatus(Status status) {
-        if (site.getStatus() == status) {
-            return;
-        }
-
+    private void updateSiteStatusTime() {
         Session session = SQLQueryExecutor.createSession();
-        String hql = String.format("""
-                UPDATE site
-                SET
-                    site.status = '%s'
-                WHERE
-                    site.name = '%s'
-                """, status.name(), site.getName());
-        session.createQuery(hql);
+        Transaction transaction = session.beginTransaction();
+        Date now = new Date(System.currentTimeMillis());
+        site.setStatusTime(now);
+        session.merge(site);
+        transaction.commit();
         session.close();
     }
 

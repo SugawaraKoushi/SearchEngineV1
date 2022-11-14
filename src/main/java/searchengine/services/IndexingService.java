@@ -11,6 +11,7 @@ import searchengine.model.Status;
 
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 
 public class IndexingService {
@@ -23,10 +24,15 @@ public class IndexingService {
         session = SQLQueryExecutor.createSession();
     }
 
-    public void index() {
+    public int index() {
         deleteSite();
         createInstanceOfSite();
         HashSet<Page> pages = parsePagesFromSite();
+
+        if (isSiteStatusFailed()) {
+            session.close();
+            return -1;
+        }
 
         Transaction transaction = session.beginTransaction();
         site.setPageSet(pages);
@@ -41,27 +47,42 @@ public class IndexingService {
         transaction.commit();
 
         session.close();
+        return 0;
     }
 
+    // Удаляет сущность site из базы данных
     private void deleteSite() {
-        Site site = session.createQuery("from " + Site.class.getSimpleName() + " where name = :nameParam", Site.class)
+        List<Site> siteList = session.createQuery("from " + Site.class.getSimpleName() + " where name = :nameParam", Site.class)
                 .setParameter("nameParam", this.site.getName())
-                .getSingleResult();
+                .getResultList();
+
+        if (siteList.isEmpty()) {
+            return;
+        }
 
         Transaction transaction = session.beginTransaction();
 
         session.createQuery("delete " + Page.class.getSimpleName() + " where site_id = :idParam")
-                .setParameter("idParam", site.getId())
+                .setParameter("idParam", siteList.get(0).getId())
                 .executeUpdate();
 
         session.createQuery("delete " + Site.class.getSimpleName() + " where id = :idParam")
-                .setParameter("idParam", site.getId())
+                .setParameter("idParam", siteList.get(0).getId())
                 .executeUpdate();
 
         transaction.commit();
     }
 
+    // Добавляет сущность site в базу данных
     private void createInstanceOfSite() {
+        List<Site> siteList = session.createQuery("from " + Site.class.getSimpleName() + " where url = :urlParam", Site.class)
+                .setParameter("urlParam", this.site.getUrl())
+                .getResultList();
+
+        if (!siteList.isEmpty()) {
+            return;
+        }
+
         Date date = new Date(System.currentTimeMillis());
         Transaction transaction = session.beginTransaction();
 
@@ -76,17 +97,30 @@ public class IndexingService {
         transaction.commit();
     }
 
+    // Возвращает множество страниц с сайта site
     private HashSet<Page> parsePagesFromSite() {
         PageParser pageParser = new PageParser(site);
         HashSet<Page> pages = new ForkJoinPool().invoke(pageParser);
         return pages;
     }
 
+
+    // Вносит странцы с сайта site в базу данных
     private void insertPagesInDB(HashSet<Page> set) {
         Transaction transaction = session.beginTransaction();
         for (Page page : set) {
             session.persist(page);
         }
         transaction.commit();
+    }
+
+    private boolean isSiteStatusFailed() {
+        List<Site> siteList = session.createQuery("from " + Site.class.getSimpleName()
+                        + " where id = :idParam and status = :statusParam", Site.class)
+                .setParameter("idParam", this.site.getId())
+                .setParameter("statusParam", Status.FAILED)
+                .getResultList();
+
+        return !siteList.isEmpty();
     }
 }
